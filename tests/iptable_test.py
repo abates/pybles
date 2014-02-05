@@ -148,3 +148,91 @@ class IPTableTest(unittest.TestCase):
         self.assertEqual(output[0], "iptables -t filter -A INPUT -j LOG --prefix \"foobar\"")
         self.assertEqual(output[1], "ip6tables -t filter -A INPUT -j LOG --prefix \"foobar\"")
 
+    def test_src_port(self):
+        p = pybles.PybleParser(iptables.Builder())
+
+        config = "filter { input { accept tcp src-port:22; }}"
+        output = p.parse_string(config)
+        self.assertEqual(2, len(output))
+        self.assertEqual(output[0], "iptables -t filter -A INPUT -j ACCEPT -m tcp -p tcp --sport 22")
+        self.assertEqual(output[1], "ip6tables -t filter -A INPUT -j ACCEPT -m tcp -p tcp --sport 22")
+
+        config = "filter { input { accept udp src-port:22; }}"
+        output = p.parse_string(config)
+        self.assertEqual(2, len(output))
+        self.assertEqual(output[0], "iptables -t filter -A INPUT -j ACCEPT -m udp -p udp --sport 22")
+        self.assertEqual(output[1], "ip6tables -t filter -A INPUT -j ACCEPT -m udp -p udp --sport 22")
+
+    def test_dst_port(self):
+        p = pybles.PybleParser(iptables.Builder())
+
+        config = "filter { input { accept tcp dst-port:22; }}"
+        output = p.parse_string(config)
+        self.assertEqual(2, len(output))
+        self.assertEqual(output[0], "iptables -t filter -A INPUT -j ACCEPT -m tcp -p tcp --dport 22")
+        self.assertEqual(output[1], "ip6tables -t filter -A INPUT -j ACCEPT -m tcp -p tcp --dport 22")
+
+        config = "filter { input { accept udp dst-port:22; }}"
+        output = p.parse_string(config)
+        self.assertEqual(2, len(output))
+        self.assertEqual(output[0], "iptables -t filter -A INPUT -j ACCEPT -m udp -p udp --dport 22")
+        self.assertEqual(output[1], "ip6tables -t filter -A INPUT -j ACCEPT -m udp -p udp --dport 22")
+
+    def test_to_self(self):
+        p = pybles.PybleParser(iptables.Builder(ips = [ "192.168.1.1" ]))
+
+        config = "filter { input { accept to self; }}"
+        output = p.parse_string(config)
+
+        self.assertEqual(5, len(output))
+        self.assertEqual(output[0], "ipset create iptables-self hash:ip family inet")
+        self.assertEqual(output[1], "ipset create iptables-self-v6 hash:ip family inet6")
+        self.assertEqual(output[2], "ipset add iptables-self 192.168.1.1")
+        self.assertEqual(output[3], "iptables -t filter -A INPUT -j ACCEPT -m set --match-set iptables-self dst")
+        self.assertEqual(output[4], "ip6tables -t filter -A INPUT -j ACCEPT -m set --match-set iptables-self-v6 dst")
+
+        config = "filter { input { accept from self; }}"
+        self.assertRaises(pybles.InvalidOption, p.parse_string, config)
+
+    def test_from_self(self):
+        p = pybles.PybleParser(iptables.Builder(ips = [ "192.168.1.1" ]))
+
+        config = "filter { output { accept from self; }}"
+        output = p.parse_string(config)
+
+        self.assertEqual(5, len(output))
+        self.assertEqual(output[0], "ipset create iptables-self hash:ip family inet")
+        self.assertEqual(output[1], "ipset create iptables-self-v6 hash:ip family inet6")
+        self.assertEqual(output[2], "ipset add iptables-self 192.168.1.1")
+        self.assertEqual(output[3], "iptables -t filter -A OUTPUT -j ACCEPT -m set --match-set iptables-self src")
+        self.assertEqual(output[4], "ip6tables -t filter -A OUTPUT -j ACCEPT -m set --match-set iptables-self-v6 src")
+
+        config = "filter { output { accept to self; }}"
+        self.assertRaises(pybles.InvalidOption, p.parse_string, config)
+
+    def test_to_interface(self):
+        p = pybles.PybleParser(iptables.Builder(interfaces = [ "eth0" ]))
+
+        config = "filter { input { accept to dst-int:eth0; }}"
+        output = p.parse_string(config)
+
+        self.assertEqual(2, len(output))
+        self.assertEqual(output[0], "iptables -t filter -A INPUT -j ACCEPT -i eth0")
+        self.assertEqual(output[1], "ip6tables -t filter -A INPUT -j ACCEPT -i eth0")
+
+        config = "filter { output { accept to dst-int:eth0; }}"
+        self.assertRaises(pybles.InvalidOption, p.parse_string, config)
+
+    def test_from_interface(self):
+        p = pybles.PybleParser(iptables.Builder(interfaces = [ "eth0" ]))
+
+        config = "filter { output { accept from src-int:eth0; }}"
+        output = p.parse_string(config)
+
+        self.assertEqual(2, len(output))
+        self.assertEqual(output[0], "iptables -t filter -A OUTPUT -j ACCEPT -o eth0")
+        self.assertEqual(output[1], "ip6tables -t filter -A OUTPUT -j ACCEPT -o eth0")
+
+        config = "filter { input { accept from src-int:eth0; }}"
+        self.assertRaises(pybles.InvalidOption, p.parse_string, config)
+

@@ -16,6 +16,7 @@
 
 import unittest
 import pybles
+import os
 
 class ParseTableTest(unittest.TestCase):
     def test_parse_table(self):
@@ -45,9 +46,8 @@ class ParseTableTest(unittest.TestCase):
 
 
     def test_parse_directive(self):
-        return
         pyble = pybles.PybleParser()
-        config = "filter { input { target;}}"
+        config = "filter { input { target; }}"
 
         pyble.parse_string(config)
         
@@ -67,3 +67,6 @@ class ParseTableTest(unittest.TestCase):
         config = "filter { input { foo { target option_name option_value; bar { target option_name option_value; }}}}"
         pyble.parse_string(config)
         
+    def test_parse_from_file(self):
+        p = pybles.PybleParser()
+        p.parse_file("%s/test.conf" % os.path.dirname(__file__))

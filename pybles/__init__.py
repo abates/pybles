@@ -110,6 +110,13 @@ class PybleParser:
         self.path = []
         self.stack = [self.builder]
 
+    def parse_file(self, infile):
+        self.reset()
+        try:
+            return self.parser.parseFile(infile, parseAll=True)
+        except ParseException, pe:
+            raise ParseError("%s" % pe)
+
     def parse_string(self, config):
         self.reset()
         try:
@@ -172,13 +179,14 @@ class PybleParser:
         return []
 
     def parse_directive(self, string, location, tokens):
-        callback = self.stack[-1][tokens.directive_name]
-        if (callback is None):
-            callback = self.stack[-1]["default_build_directive"]
+        if (self.stack[-1]):
+            callback = self.stack[-1][tokens.directive_name]
+            if (callback is None):
+                callback = self.stack[-1]["default_build_directive"]
 
-        if (callback):
-            options = Options(tokens.options)
-            directive = Directive(name = tokens.directive_name, path = self.path, options = options)
-            return callback(self.path, directive)
-        else:
-            raise InvalidDirective("Cannot parse directive %s:" % string)
+            if (callback):
+                options = Options(tokens.options)
+                directive = Directive(name = tokens.directive_name, path = self.path, options = options)
+                return callback(self.path, directive)
+            else:
+                raise InvalidDirective("Cannot parse directive %s:" % string)
